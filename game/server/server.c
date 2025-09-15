@@ -8,10 +8,14 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <strings.h>
 #include <unistd.h>
-#include <_strings.h>
 
 int main() {
+    #ifndef NDEBUG
+        setbuf(stdout, 0);
+    #endif
+
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == 0) {
         perror("socket failed!");
@@ -39,11 +43,6 @@ int main() {
     close(cli_socket);
 
     return 0;
-}
-
-struct Packet* parsePacket(char data[]) {
-    struct Packet packet;
-
 }
 
 void* processSocket(void* client_socket) {

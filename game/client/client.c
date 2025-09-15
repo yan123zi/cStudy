@@ -5,7 +5,6 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include <_strings.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -13,7 +12,7 @@
 
 #include <string.h>
 #include <unistd.h>
-#include <pthread/pthread.h>
+#include <pthread.h>
 
 int main() {
     int cli_socket = socket(AF_INET, SOCK_STREAM, 0);
