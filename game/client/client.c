@@ -13,8 +13,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdlib.h>
+
 
 int main() {
+    #ifndef NDEBUG
+        setbuf(stdout, 0);
+    #endif
     int cli_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (cli_socket < 0) {
         printf("Error creating socket\n");
@@ -42,10 +47,11 @@ int main() {
 
 void* processInput(void* socket) {
     int cli_socket = *((int*)socket);
-    char buffer[1024];
-    char close[]="close\n";
+    char buffer[6];
+    char close[]="close";
     while (true) {
-        bzero(buffer, 1024);
+        bzero(buffer, sizeof(buffer));
+        printf("请输入协议号：");
         if (fgets(buffer,sizeof(buffer),stdin) == NULL) {
             printf("Error reading from stdin\n");
             break;
@@ -54,16 +60,95 @@ void* processInput(void* socket) {
         if (strcmp(buffer, close) == 0) {
             break;
         }
-        ssize_t size = send(cli_socket, &buffer, strlen(buffer), 0);
-        if (size < 0) {
-            printf("Error writing to socket\n");
-            break;
+        if (!isNumber(buffer)) {
+            printf("协议号格式错误\n");
+            continue;
         }
-        ssize_t recvSize=recv(cli_socket, &buffer, sizeof(buffer), 0);
-        if (recvSize < 0) {
-            printf("Error reading from socket\n");
-            break;
+        const MSGId msgNo = convertToLong(buffer);
+        if (msgNo == -1) {
+            printf("协议号格式错误\n");
+            continue;
         }
-        printf("ReceiveMsgFromServer: %s", buffer);
+        if (msgNo<MIN_MSG_NO||msgNo>MAX_MSG_NO) {
+            printf("协议号错误\n");
+            continue;
+        }
+        handleInput(msgNo, cli_socket);
     }
+}
+
+void handleInput(MSGId msgNo,int socket) {
+    struct Packet* packet=NULL;
+    switch (msgNo) {
+        case AddItem:
+            packet=handleAddItem();
+            break;
+        case RemoveItem:
+            break;
+        case UpdateItem:
+            break;
+        case GetItem:
+            break;
+        default:
+            break;
+    }
+
+    if (packet == NULL) {
+        return;
+    }
+    unsigned char* data = marshalPacketToData(packet);
+    if (data == NULL) {
+        return;
+    }
+    long packSize= send(socket,data,packet->length+PACKET_HEADER_SIZE,0);
+    if (packSize == 0) {
+        printf("Error sending data to server\n");
+        free(data);
+        free(packet);
+        return;
+    }
+    free(data);
+    free(packet);
+}
+
+struct Packet* handleAddItem() {
+    struct Item* item = malloc(sizeof(struct Item));
+    if (item == NULL) {
+        perror("Error allocating memory for item");
+        return NULL;
+    }
+
+    if (!getValidNumber("请输入道具Id：", &item->itemId, 1, 0xFFFFFFFF)) {
+        free(item);
+        return NULL;
+    }
+
+    char nameBuffer[21];
+    if (!getValidString("请输入道具名称：",nameBuffer,sizeof(item->itemName))) {
+        free(item);
+        return NULL;
+    }
+    strcpy(item->itemName,nameBuffer);
+
+    if (!getValidNumber("请输入道具数量：", &item->itemNum, 0, 0xFFFFFFFF)) {
+        free(item);
+        return NULL;
+    }
+
+    struct AddItem* addItem = malloc(sizeof(struct AddItem));
+    if (addItem == NULL) {
+        perror("Error allocating memory for addItem");
+        free(item);
+        return NULL;
+    }
+
+    memcpy(&addItem->item,item, sizeof(struct Item));
+    free(item);
+    struct Packet* packet=unmarshalDataToPacket((unsigned char*)addItem,sizeof(struct AddItem),AddItem);
+    if (packet == NULL) {
+        free(addItem);
+        return NULL;
+    }
+    free(addItem);
+    return packet;
 }

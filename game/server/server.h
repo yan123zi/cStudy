@@ -5,7 +5,7 @@
 
 #ifndef SERVER_H
 #define SERVER_H
-#include "../common/common.h"
+#include <bits/types.h>
 
 // socket处理
 extern void* processSocket(void* socket);

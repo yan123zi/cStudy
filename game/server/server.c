@@ -47,7 +47,7 @@ int main() {
 
 void* processSocket(void* client_socket) {
     int cli_sock = *(int*)client_socket;
-    char sizeNo[2];
+    char sizeNo[1024];
     while (true) {
         bzero(sizeNo, sizeof(sizeNo));
         long packSize= recv(cli_sock,&sizeNo,sizeof(sizeNo),0);

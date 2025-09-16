@@ -6,8 +6,8 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(server server/server.c server/server.h
         common/common.h
-        common/common.cpp)
+        common/common.c)
 
 add_executable(client client/client.c client/client.h
         common/common.h
-        common/common.cpp)
+        common/common.c)
