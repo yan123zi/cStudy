@@ -7,12 +7,16 @@
 #include "../common/common.h"
 
 // 处理用户输入线程
-extern void* processInput(void* socket);
+extern void *processInput(void *socket);
 
-extern void handleInput(MSGId msgNo,int socket);
-extern struct Packet* handleAddItem();
-extern struct Packet* handleRemoveItem();
-extern struct Packet* handleUpdateItem();
-extern struct Packet* handleGetItem();
+extern int handleInput(MSGId msgNo, int socket);
+
+extern struct Packet *handleAddItem();
+
+extern struct Packet *handleRemoveItem();
+
+extern struct Packet *handleUpdateItem();
+
+extern struct Packet *handleGetItem();
 
 #endif //CLIENT_H

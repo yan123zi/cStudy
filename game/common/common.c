@@ -9,9 +9,10 @@
 
 // 变量定义
 const __uint16_t PACKET_HEADER_SIZE = sizeof(PACKET_LEN) + sizeof(MSGId);
+const char fileName[] = "item.dat";
 
-struct Packet* unmarshalDataToPacket(const unsigned char* data, __uint16_t length, MSGId msgNo) {
-    struct Packet* packet = malloc(sizeof(struct Packet));
+struct Packet *unmarshalDataToPacket(const unsigned char *data, __uint16_t length, MSGId msgNo) {
+    struct Packet *packet = malloc(sizeof(struct Packet));
     if (packet == NULL) {
         return NULL;
     }
@@ -27,33 +28,33 @@ struct Packet* unmarshalDataToPacket(const unsigned char* data, __uint16_t lengt
     return packet;
 }
 
-unsigned char* marshalPacketToData(struct Packet* packet) {
+unsigned char *marshalPacketToData(struct Packet *packet) {
     if (packet == NULL) {
         printf("marshalPacketToData packet is NULL");
         return NULL;
     }
-    const u_int16_t dataLength = PACKET_HEADER_SIZE+packet->length;
-    unsigned char* data = malloc(dataLength);
+    const u_int16_t dataLength = PACKET_HEADER_SIZE + packet->length;
+    unsigned char *data = malloc(dataLength);
     if (data == NULL) {
         printf("marshalPacketToData malloc failed");
         return NULL;
     }
 
     size_t offset = 0;
-    memcpy(data+offset, &packet->length,sizeof(PACKET_LEN));
+    memcpy(data + offset, &packet->length, sizeof(PACKET_LEN));
     offset += sizeof(PACKET_LEN);
-    memcpy(data+offset, &packet->msgNo,sizeof(MSGId));
+    memcpy(data + offset, &packet->msgNo, sizeof(MSGId));
     offset += sizeof(MSGId);
-    memcpy(data+offset, packet->body,packet->length);
+    memcpy(data + offset, packet->body, packet->length);
     return data;
 }
 
-int isNumber(const char* str) {
+int isNumber(const char *str) {
     if (str == NULL) {
         printf("isNumber str is NULL");
         return 0;
     }
-    for (int i = 0; i < strlen(str)-1; i++) {
+    for (int i = 0; i < strlen(str) - 1; i++) {
         if (str[i] < '0' || str[i] > '9') {
             return 0;
         }
@@ -61,32 +62,32 @@ int isNumber(const char* str) {
     return 1;
 }
 
-long convertToLong(const char* str) {
+long convertToLong(const char *str) {
     if (str == NULL) {
         printf("convertToLong str is NULL");
         return -1;
     }
 
-    char* endptr;
+    char *endptr;
     long result = strtol(str, &endptr, 10);
-    if (endptr==str) {
+    if (endptr == str) {
         printf("convertToLong not number");
         return -1;
     }
-    if (*endptr != '\0'&&*endptr != '\n') {
+    if (*endptr != '\0' && *endptr != '\n') {
         printf("convertToLong not number");
         return -1;
     }
     return result;
 }
 
-bool getValidNumber(const char* prompt,__uint32_t* result,__uint32_t minValue,__uint32_t maxValue) {
-    printf("%s",prompt);
+bool getValidNumber(const char *prompt, __uint32_t *result, __uint32_t minValue, __uint32_t maxValue) {
+    printf("%s", prompt);
 
     while (true) {
         char buff[12];
-        bzero(buff,sizeof(buff));
-        if (fgets(buff,sizeof(buff),stdin) == NULL) {
+        bzero(buff, sizeof(buff));
+        if (fgets(buff, sizeof(buff),stdin) == NULL) {
             printf("输入错误，请重新输入\n");
             continue;
         }
@@ -102,16 +103,16 @@ bool getValidNumber(const char* prompt,__uint32_t* result,__uint32_t minValue,__
             continue;
         }
 
-        *result = (__uint32_t)num;
+        *result = (__uint32_t) num;
         return true;
     }
 }
 
-bool getValidString(const char* prompt,char* result,int maxLength) {
-    printf("%s",prompt);
+bool getValidString(const char *prompt, char *result, int maxLength) {
+    printf("%s", prompt);
 
     while (true) {
-        if (fgets(result,maxLength+1,stdin) == NULL) {
+        if (fgets(result, maxLength + 1,stdin) == NULL) {
             printf("输入错误，请重新输入\n");
             continue;
         }
@@ -123,7 +124,7 @@ bool getValidString(const char* prompt,char* result,int maxLength) {
         }
 
         // 检查是否为空
-        if (strlen(result)==0) {
+        if (strlen(result) == 0) {
             printf("输入不能为空，请重新输入\n");
             continue;
         }
