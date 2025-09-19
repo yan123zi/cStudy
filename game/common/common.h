@@ -12,7 +12,8 @@
 // 协议号
 typedef __uint8_t MSGId;
 
-enum MessageIds {
+enum MessageIds
+{
     MIN_MSG_NO = 0, // 最小消息ID
     AddItem = 1, // 添加道具
     RemoveItem = 2, // 删除道具
@@ -25,7 +26,8 @@ typedef __uint16_t PACKET_LEN;
 extern const __uint16_t PACKET_HEADER_SIZE;
 
 // 网络包结构
-struct Packet {
+struct Packet
+{
     PACKET_LEN length; // 包长度
     MSGId msgNo; // 协议号
     unsigned char *body; // 包体内容
@@ -33,27 +35,31 @@ struct Packet {
 
 extern const char fileName[];
 
-FILE *itemFile = NULL;
+extern FILE *itemFile;
 
 extern struct Item *getItemFromFileByPos(int pos); // 获取道具从某个位置
 extern int cleanFile(); // 清除文件内容
-extern int addItemToFile(const struct Item *item); // 添加道具到文件中
+extern int closeFile(); // 关闭道具文件
+extern int addItemToFile(const struct Item *item, int offset); // 添加道具到文件中
 extern int getItemFileSize(); // 获取道具文件大小
+
 
 #define TABLE_SIZE 10000
 
-typedef struct Node {
+typedef struct Node
+{
     struct Item *item;
     struct Node *next;
 } Node;
 
-typedef struct HashTable {
+typedef struct HashTable
+{
     __uint32_t size;
     __uint32_t capacity;
     Node **table;
 } HashTable;
 
-HashTable *ItemHashTable;
+extern HashTable *ItemHashTable;
 
 extern int initHashTable(__uint32_t capacity); // 初始化道具哈希表
 extern __uint32_t hash(__uint32_t key); // 哈希函数
@@ -64,7 +70,8 @@ extern void freeItemHashTable(); // 释放道具哈希表内存
 extern struct Item *getAllItemsFromHashTable(); // 获取所有道具
 
 // 道具结构
-struct Item {
+struct Item
+{
     __uint32_t itemId; // 道具id
     char itemName[20]; // 道具名
     __uint32_t itemNum; // 道具数量
@@ -72,22 +79,26 @@ struct Item {
 
 // 协议包体
 // 增加道具
-struct AddItem {
+struct AddItem
+{
     struct Item item;
 };
 
 // 删除道具
-struct DelItem {
+struct DelItem
+{
     __uint32_t itemId; // 道具id
 };
 
 // 更改道具
-struct UpdateItem {
+struct UpdateItem
+{
     struct Item item;
 };
 
 // 获取道具
-struct GetItem {
+struct GetItem
+{
     __uint32_t itemId; // 道具id
 };
 

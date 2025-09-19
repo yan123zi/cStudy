@@ -23,12 +23,9 @@ extern int parseBody(int socket, char data[]);
 
 
 // 具体协议方法
-extern int addItem(unsigned char *body, PACKET_LEN length, int socket);
-
-extern int removeItem(unsigned char *body, PACKET_LEN length, int socket);
-
-extern int updateItem(unsigned char *body, PACKET_LEN length, int socket);
-
-extern int getItem(unsigned char *body, PACKET_LEN length, int socket);
+extern int addItemHandler(unsigned char *body, PACKET_LEN length, int socket);
+extern int removeItemHandler(unsigned char *body, PACKET_LEN length, int socket);
+extern int updateItemHandler(unsigned char *body, PACKET_LEN length, int socket);
+extern int getItemHandler(unsigned char *body, PACKET_LEN length, int socket);
 
 #endif //SERVER_H

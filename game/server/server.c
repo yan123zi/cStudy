@@ -13,34 +13,39 @@
 #include <strings.h>
 #include <unistd.h>
 
-int main() {
+int main()
+{
 #ifndef NDEBUG
     setbuf(stdout, 0);
 #endif
 
     int ret = loadItemData();
-    if (ret < 0) {
+    if (ret < 0)
+    {
         printf("loadItemData failed\n");
         return -1;
     }
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket == 0) {
+    if (server_socket == 0)
+    {
         perror("socket failed!");
-        return 1;
+        return exitServer();
     }
     struct sockaddr_in server_address = {0};
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
     server_address.sin_port = htons(1234);
-    bind(server_socket, (struct sockaddr *) &server_address, sizeof(server_address));
+    bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
 
     listen(server_socket, 10);
     struct sockaddr_in client_address;
     socklen_t client_address_length = sizeof(client_address);
-    int cli_socket = accept(server_socket, (struct sockaddr *) &client_address, &client_address_length);
-    if (cli_socket == 0) {
+    int cli_socket = accept(server_socket, (struct sockaddr *)&client_address, &client_address_length);
+    if (cli_socket == 0)
+    {
         perror("accept failed!");
-        return 1;
+        close(server_socket);
+        return exitServer();
     }
 
     pthread_t client;
@@ -49,43 +54,90 @@ int main() {
     close(server_socket);
     close(cli_socket);
 
-    return 0;
+    return exitServer();
 }
 
-int loadItemData() {
+int loadItemData()
+{
     itemFile = fopen(fileName, "rb+");
-    if (itemFile == NULL) {
+    if (itemFile == NULL)
+    {
         perror("loadItemData fopen failed!");
         return -1;
     }
     int ret = initHashTable(TABLE_SIZE);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         perror("initHashTable failed!");
         return -1;
     }
 
-    int totalItemSize = getItemFileSize() / (int) sizeof(struct Item);
-    if (totalItemSize < 0) {
+    int totalItemSize = getItemFileSize() / (int)sizeof(struct Item);
+    if (totalItemSize < 0)
+    {
         printf("getItemFileSize failed");
         return -1;
     }
 
-    for (int i = 0; i < totalItemSize; i++) {
-        struct Item *item = getItemFromFileByPos(i * (int) sizeof(struct Item));
-        if (putItem(item)) {
+    for (int i = 0; i < totalItemSize; i++)
+    {
+        struct Item *item = getItemFromFileByPos(i * (int)sizeof(struct Item));
+        if (!putItem(item))
+        {
             printf("loadItemData putItem failed, itemId: %u\n", item->itemId);
+            free(item);
         }
     }
     return 0;
 }
 
-void *processSocket(void *client_socket) {
-    int cli_sock = *(int *) client_socket;
+int exitServer()
+{
+    struct Item *itemList = getAllItemsFromHashTable();
+    if (itemList == NULL)
+    {
+        printf("exitServer getAllItemsFromHashTable failed");
+        return -1;
+    }
+
+    int listSize = ItemHashTable->size;
+    int ret = cleanFile();
+    if (ret != 0)
+    {
+        printf("exitServer cleanFile failed!");
+        return -1;
+    }
+
+    for (int i = 0; i < listSize; i++)
+    {
+        ret = addItemToFile(&itemList[i], i * (int)sizeof(struct Item));
+        if (ret != 0)
+        {
+            printf("exitServer addItemToFile failed, itemId: %u\n", itemList[i].itemId);
+            return -1;
+        }
+    }
+
+    freeItemHashTable();
+    ret = closeFile();
+    if (ret != 0)
+    {
+        printf("exitServer closeFile failed!");
+        return -1;
+    }
+    return 0;
+}
+
+void *processSocket(void *client_socket)
+{
+    int cli_sock = *(int *)client_socket;
     char sizeNo[PACKET_HEADER_SIZE];
-    while (true) {
+    while (true)
+    {
         bzero(sizeNo, sizeof(sizeNo));
         long packSize = recv(cli_sock, &sizeNo, sizeof(sizeNo), 0);
-        if (packSize == 0) {
+        if (packSize == 0)
+        {
             break;
         }
 
@@ -96,28 +148,33 @@ void *processSocket(void *client_socket) {
         printf("MessageFromClient len: %d, msgNo: %d\n", length, msgNo);
 
         unsigned char *body = malloc(length);
-        if (body == NULL) {
+        if (body == NULL)
+        {
             printf("malloc body failed");
             continue;
         }
         ssize_t bodySize = recv(cli_sock, body, length, 0);
-        if (bodySize == 0) {
-            printf("recv body failed");
+        if (bodySize == 0)
+        {
+            printf("connect closed！");
             break;
         }
-        if (bodySize < length) {
-            printf("recv body size less then length, bodySize: %d, length: %d\n", (int) bodySize, length);
+        if (bodySize < length)
+        {
+            printf("recv body size less then length, bodySize: %d, length: %d\n", (int)bodySize, length);
             free(body);
             continue;
         }
         struct Packet *packet = unmarshalDataToPacket(body, length, msgNo);
-        if (packet == NULL) {
+        if (packet == NULL)
+        {
             printf("unmarshalDataToPacket failed");
             free(body);
             break;
         }
         int ret = handlePacket(cli_sock, packet);
-        if (ret < 0) {
+        if (ret != 0)
+        {
             printf("handlePacket failed");
             free(body);
             free(packet);
@@ -130,42 +187,109 @@ void *processSocket(void *client_socket) {
     return NULL;
 }
 
-int handlePacket(const int socket, const struct Packet *packet) {
+int handlePacket(const int socket, const struct Packet *packet)
+{
     printf("Handling Packet from socket %d\n", socket);
-    if (packet == NULL) {
+    if (packet == NULL)
+    {
         printf("Packet is NULL");
         return -1;
     }
-    switch (packet->msgNo) {
-        case AddItem:
-            printf("Adding Item\n");
-            return addItem(packet->body, packet->length, socket);
-        case RemoveItem:
-            printf("Removing Item\n");
-            break;
-        case UpdateItem:
-            printf("Updating Item\n");
-            break;
-        case GetItem:
-            printf("Getting Item\n");
-            break;
-        default:
-            printf("Unknown Message Type\n");
-            return -1;
+    switch (packet->msgNo)
+    {
+    case AddItem:
+        printf("Adding Item\n");
+        return addItemHandler(packet->body, packet->length, socket);
+    case RemoveItem:
+        printf("Removing Item\n");
+        break;
+    case UpdateItem:
+        printf("Updating Item\n");
+        break;
+    case GetItem:
+        printf("Getting Item\n");
+        break;
+    default:
+        printf("Unknown Message Type\n");
+        return -1;
     }
 
     printf("msgId err!");
     return -1;
 }
 
-int addItem(unsigned char *body, const PACKET_LEN length, int socket) {
-    if (length != sizeof(struct AddItem)) {
+int addItemHandler(unsigned char *body, const PACKET_LEN length, int socket)
+{
+    if (length != sizeof(struct AddItem))
+    {
         printf("addItem length err!");
         return -1;
     }
 
-    struct AddItem *addItemReq = (struct AddItem *) body;
+    struct AddItem *addItemReq = (struct AddItem *)body;
     printf("addItem itemId: %d, count: %d, itemName: %s\n", addItemReq->item.itemId, addItemReq->item.itemNum,
            addItemReq->item.itemName);
+    if (!putItem(&addItemReq->item))
+    {
+        printf("addItemHandler putItem failed, itemId: %u\n", addItemReq->item.itemId);
+        return -1;
+    }
+    return 0;
+}
+
+int removeItemHandler(unsigned char *body, PACKET_LEN length, int socket)
+{
+    if (length != sizeof(struct DelItem))
+    {
+        printf("removeItem length err!");
+        return -1;
+    }
+
+    struct DelItem *delItemReq = (struct DelItem *)body;
+    printf("removeItem itemId: %d\n", delItemReq->itemId);
+    if (!removeItem(delItemReq->itemId))
+    {
+        printf("removeItemHandler removeItem failed, itemId: %u\n", delItemReq->itemId);
+        return -1;
+    }
+    return 0;
+}
+
+int updateItemHandler(unsigned char *body, PACKET_LEN length, int socket)
+{
+    if (length != sizeof(struct UpdateItem))
+    {
+        printf("updateItem length err!");
+        return -1;
+    }
+
+    struct UpdateItem *updateItemReq = (struct UpdateItem *)body;
+    printf("updateItem itemId: %d, count: %d, itemName: %s\n", updateItemReq->item.itemId, updateItemReq->item.itemNum,
+           updateItemReq->item.itemName);
+    if (!putItem(&updateItemReq->item))
+    {
+        printf("updateItemHandler putItem failed, itemId: %u\n", updateItemReq->item.itemId);
+        return -1;
+    }
+    return 0;
+}
+
+int getItemHandler(unsigned char *body, PACKET_LEN length, int socket)
+{
+    if (length != sizeof(struct GetItem))
+    {
+        printf("getItem length err!");
+        return -1;
+    }
+
+    struct GetItem *getItemReq = (struct GetItem *)body;
+    printf("getItem itemId: %d\n", getItemReq->itemId);
+    struct Item *item = getItem(getItemReq->itemId);
+    if (item == NULL)
+    {
+        printf("getItemHandler getItem failed, itemId: %u\n", getItemReq->itemId);
+        return -1;
+    }
+    printf("getItem itemId: %d, count: %d, itemName: %s\n", item->itemId, item->itemNum, item->itemName);
     return 0;
 }
