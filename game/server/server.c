@@ -18,6 +18,11 @@ int main() {
     setbuf(stdout, 0);
 #endif
 
+    int ret = loadItemData();
+    if (ret < 0) {
+        printf("loadItemData failed\n");
+        return -1;
+    }
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == 0) {
         perror("socket failed!");
@@ -44,6 +49,33 @@ int main() {
     close(server_socket);
     close(cli_socket);
 
+    return 0;
+}
+
+int loadItemData() {
+    itemFile = fopen(fileName, "rb+");
+    if (itemFile == NULL) {
+        perror("loadItemData fopen failed!");
+        return -1;
+    }
+    int ret = initHashTable(TABLE_SIZE);
+    if (ret < 0) {
+        perror("initHashTable failed!");
+        return -1;
+    }
+
+    int totalItemSize = getItemFileSize() / (int) sizeof(struct Item);
+    if (totalItemSize < 0) {
+        printf("getItemFileSize failed");
+        return -1;
+    }
+
+    for (int i = 0; i < totalItemSize; i++) {
+        struct Item *item = getItemFromFileByPos(i * (int) sizeof(struct Item));
+        if (putItem(item)) {
+            printf("loadItemData putItem failed, itemId: %u\n", item->itemId);
+        }
+    }
     return 0;
 }
 

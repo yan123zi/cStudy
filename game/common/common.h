@@ -6,6 +6,7 @@
 #define COMMON_H
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <bits/types.h>
 
 // 协议号
@@ -22,7 +23,6 @@ enum MessageIds {
 
 typedef __uint16_t PACKET_LEN;
 extern const __uint16_t PACKET_HEADER_SIZE;
-extern const char fileName[];
 
 // 网络包结构
 struct Packet {
@@ -30,6 +30,38 @@ struct Packet {
     MSGId msgNo; // 协议号
     unsigned char *body; // 包体内容
 };
+
+extern const char fileName[];
+
+FILE *itemFile = NULL;
+
+extern struct Item *getItemFromFileByPos(int pos); // 获取道具从某个位置
+extern int cleanFile(); // 清除文件内容
+extern int addItemToFile(const struct Item *item); // 添加道具到文件中
+extern int getItemFileSize(); // 获取道具文件大小
+
+#define TABLE_SIZE 10000
+
+typedef struct Node {
+    struct Item *item;
+    struct Node *next;
+} Node;
+
+typedef struct HashTable {
+    __uint32_t size;
+    __uint32_t capacity;
+    Node **table;
+} HashTable;
+
+HashTable *ItemHashTable;
+
+extern int initHashTable(__uint32_t capacity); // 初始化道具哈希表
+extern __uint32_t hash(__uint32_t key); // 哈希函数
+extern struct Item *getItem(__uint32_t id); // 获取道具
+extern bool putItem(struct Item *item); // 放入道具
+extern bool removeItem(__uint32_t id); // 删除道具
+extern void freeItemHashTable(); // 释放道具哈希表内存
+extern struct Item *getAllItemsFromHashTable(); // 获取所有道具
 
 // 道具结构
 struct Item {

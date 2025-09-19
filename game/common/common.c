@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // 变量定义
 const __uint16_t PACKET_HEADER_SIZE = sizeof(PACKET_LEN) + sizeof(MSGId);
@@ -130,4 +131,239 @@ bool getValidString(const char *prompt, char *result, int maxLength) {
         }
         return true;
     }
+}
+
+int initHashTable(__uint32_t capacity) {
+    ItemHashTable = malloc(sizeof(HashTable));
+    if (ItemHashTable == NULL) {
+        printf("initHashTable malloc failed");
+        return -1;
+    }
+
+    ItemHashTable->size = 0;
+    ItemHashTable->capacity = capacity;
+    ItemHashTable->table = malloc(sizeof(Node *) * capacity);
+    if (ItemHashTable->table == NULL) {
+        printf("initHashTable malloc table failed");
+        return -1;
+    }
+    for (int i = 0; i < capacity; i++) {
+        ItemHashTable->table[i] = NULL;
+    }
+    return 0;
+}
+
+__uint32_t hash(__uint32_t key) {
+    // 使用黄金分割比例的乘法哈希
+    key = ((key >> 16) ^ key) * 0x45d9f3b;
+    key = ((key >> 16) ^ key) * 0x45d9f3b;
+    key = (key >> 16) ^ key;
+    return key % ItemHashTable->capacity;
+}
+
+struct Item *getItem(__uint32_t id) {
+    __uint32_t key = hash(id);
+    Node *node = ItemHashTable->table[key];
+    if (node == NULL) {
+        printf("getItem key: %d, node is NULL", key);
+        return NULL;
+    }
+
+    while (node != NULL) {
+        if (node->item->itemId == id) {
+            return node->item;
+        }
+        node = node->next;
+    }
+    return NULL;
+}
+
+bool putItem(struct Item *item) {
+    if (item == NULL) {
+        printf("putItem item is NULL");
+        return false;
+    }
+
+    __uint32_t key = hash(item->itemId);
+    Node *node = ItemHashTable->table[key];
+    if (node == NULL) {
+        node = malloc(sizeof(Node));
+        if (node == NULL) {
+            printf("putItem malloc node failed");
+            return false;
+        }
+
+        node->item = item;
+        node->next = NULL;
+        ItemHashTable->table[key] = node;
+        ItemHashTable->size++;
+        return true;
+    }
+
+    while (node->next != NULL) {
+        if (node->item->itemId == item->itemId) {
+            free(node->item);
+            node->item = item;
+            return true;
+        }
+        node = node->next;
+    }
+    Node *newNode = malloc(sizeof(Node));
+    if (newNode == NULL) {
+        printf("putItem malloc newNode failed");
+        return false;
+    }
+
+    newNode->item = item;
+    newNode->next = NULL;
+    node->next = newNode;
+    ItemHashTable->size++;
+    return true;
+}
+
+bool removeItem(__uint32_t id) {
+    __uint32_t key = hash(id);
+    Node *node = ItemHashTable->table[key];
+    if (node == NULL) {
+        printf("removeItem key: %d, node is NULL", key);
+        return false;
+    }
+
+    if (node->item->itemId == id) {
+        ItemHashTable->table[key] = node->next;
+        free(node->item);
+        free(node);
+        ItemHashTable->size--;
+        return true;
+    }
+
+    while (node->next != NULL) {
+        Node *pre = node;
+        Node *cur = node->next;
+        if (cur->item->itemId == id) {
+            pre->next = cur->next;
+            free(cur->item);
+            free(cur);
+            ItemHashTable->size--;
+            return true;
+        }
+        node = cur;
+    }
+
+    printf("removeItem: Item with id %u not found\n", id);
+    return false;
+}
+
+void freeItemHashTable() {
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        Node *node = ItemHashTable->table[i];
+        // 遍历当前桶的所有节点，释放内存
+        while (node != NULL) {
+            Node *next = node->next;
+            // 释放节点关联结构体
+            if (node->item != NULL) {
+                free(node->item);
+            }
+
+            free(node);
+            node = next;
+        }
+        ItemHashTable->table[i] = NULL;
+    }
+
+    ItemHashTable->size = 0;
+    ItemHashTable->capacity = 0;
+    free(ItemHashTable->table);
+    free(ItemHashTable);
+}
+
+struct Item *getAllItemsFromHashTable() {
+    struct Item *list = malloc(sizeof(struct Item) * ItemHashTable->size);
+    if (list == NULL) {
+        printf("getAllItemsFromHashTable malloc failed");
+        return NULL;
+    }
+    int index = 0;
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        if (ItemHashTable->table[i] == NULL) {
+            continue;
+        }
+        Node *node = ItemHashTable->table[i];
+        while (node != NULL) {
+            list[index] = *node->item;
+            node = node->next;
+            index++;
+        }
+    }
+    return list;
+}
+
+
+struct Item *getItemFromFileByPos(int pos) {
+    struct Item *item = malloc(sizeof(struct Item));
+    if (item == NULL) {
+        printf("getItemFromFileByPos malloc item is NULL");
+        return NULL;
+    }
+
+    int ret = fseek(itemFile, pos, SEEK_SET);
+    if (ret != 0) {
+        printf("getItemFromFileByPos fseek failed");
+        return NULL;
+    }
+    size_t size = fread(item, sizeof(struct Item), 1, itemFile);
+    if (size != 1) {
+        printf("getItemFromFileByPos fread failed");
+        return NULL;
+    }
+    return item;
+}
+
+int cleanFile() {
+    int ret = fseek(itemFile, 0, SEEK_SET);
+    if (ret != 0) {
+        printf("cleanFile fseek failed");
+        return -1;
+    }
+    ret = ftruncate(fileno(itemFile), 0);
+    if (ret != 0) {
+        printf("cleanFile ftruncate failed");
+        return -1;
+    }
+    ret = fclose(itemFile);
+    if (ret != 0) {
+        printf("cleanFile fclose failed");
+        return -1;
+    }
+
+    itemFile = NULL;
+    return 0;
+}
+
+int addItemToFile(const struct Item *item) {
+    const int ret = fseek(itemFile, 0, SEEK_SET);
+    if (ret != 0) {
+        printf("addItemToFile fseek failed");
+        return -1;
+    }
+    const size_t size = fwrite(item, sizeof(struct Item), 1, itemFile);
+    if (size != 1) {
+        printf("addItemToFile fwrite failed");
+        return -1;
+    }
+    return 0;
+}
+
+int getItemFileSize() {
+    const int ret = fseek(itemFile, 0, SEEK_END);
+    if (ret != 0) {
+        printf("getItemFileSize fseek failed");
+        return -1;
+    }
+    const long size = ftell(itemFile);
+    if (size == -1) {
+        printf("getItemFileSize ftell failed");
+        return -1;
+    }
+    return (int) size;
 }

@@ -5,8 +5,12 @@
 
 #ifndef SERVER_H
 #define SERVER_H
-#include <bits/types.h>
 #include "../common/common.h"
+
+// 服务器进程相关
+extern int loadItemData();
+
+extern int exitServer();
 
 // socket处理
 extern void *processSocket(void *socket);
